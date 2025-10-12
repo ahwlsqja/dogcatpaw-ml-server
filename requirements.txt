@@ -1,0 +1,26 @@
+# Runtime dependencies for Dog Nose Embedder gRPC Server
+
+# gRPC
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+protobuf>=4.21.6,<5.0
+
+# ONNX Runtime
+onnxruntime>=1.16.0
+
+# Image processing
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# Configuration
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Dependency Injection
+dependency-injector>=4.41.0
+
+# Cloud Storage (NCP Object Storage)
+boto3>=1.34.0
+
+# Logging (optional, but recommended)
+python-json-logger>=2.0.0
