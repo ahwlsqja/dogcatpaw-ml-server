@@ -2,6 +2,7 @@
 import json
 import logging
 from typing import Optional, List
+from datetime import datetime, timezone
 import boto3
 from botocore.exceptions import ClientError, BotoCoreError
 
@@ -69,6 +70,10 @@ class VectorStorageService:
         # 예: "did:pet:12345" → "pet/petDID/did:pet:12345.json"
         object_key = f"{self.vector_prefix}/{pet_did}.json"
 
+        logger.info(
+            f"벡터 키 : {object_key} "
+        )
+
         try:
             logger.info(
                 f"벡터 다운로드 시작: bucket={self.bucket_name}, "
@@ -82,9 +87,25 @@ class VectorStorageService:
             )
 
             # JSON 데이터 읽기
-            vector_data = json.loads(response['Body'].read().decode('utf-8'))
-            vector = vector_data.get('vector', [])
-            dimension = vector_data.get('dimension', len(vector))
+            json_content = response['Body'].read().decode('utf-8')
+            vector_data = json.loads(json_content)
+
+            # 'featureVector' 키로 벡터 가져오기 (NCP 저장 형식)
+            vector = vector_data.get('featureVector', [])
+
+            # 벡터가 비어있으면 명확한 에러
+            if not vector or len(vector) == 0:
+                logger.error(
+                    f"벡터 데이터가 비어있습니다! "
+                    f"JSON keys: {list(vector_data.keys())}, "
+                    f"featureVector value: {vector}"
+                )
+                raise Exception(
+                    f"저장된 벡터가 비어있습니다. "
+                    f"JSON 구조를 확인하세요: keys={list(vector_data.keys())}"
+                )
+
+            dimension = vector_data.get('vectorSize', len(vector))
 
             logger.info(
                 f"벡터 다운로드 완료: {object_key} "
@@ -143,10 +164,13 @@ class VectorStorageService:
                 f"key={object_key}, dimension={len(vector)}"
             )
 
-            # JSON 데이터 생성
+            # JSON 데이터 생성 (NCP 저장 형식과 동일하게)
             vector_data = {
-                "vector": vector,
-                "dimension": len(vector),
+                "petDID": pet_did,
+                "featureVector": vector,
+                "vectorSize": len(vector),
+                "createdAt": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+                "version": "1.0"
             }
 
             # Object Storage에 업로드
