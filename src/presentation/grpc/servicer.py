@@ -13,7 +13,21 @@ from ...application.use_cases import (
 from ...application.use_cases.compare_with_stored_image import (
     CompareWithStoredImageUseCase,
 )
-from ...domain.exceptions import DomainException, ModelNotLoadedError, InferenceError
+from ...domain.exceptions import (
+    DomainException,
+    ModelNotLoadedError,
+    InferenceError,
+    InvalidImageError,
+    ImageTooLargeError,
+    InvalidImageFormatError,
+    VectorNotFoundError,
+    VectorDimensionMismatchError,
+    InvalidRequestError,
+    StorageConnectionError,
+    InternalServerError,
+    ServiceUnavailableError,
+    get_proto_error_code,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,40 +88,28 @@ class NoseEmbedderServicer:
                 error_message=""
             )
 
-        except ModelNotLoadedError as e:
-            logger.error(f"모델이 로드되지 않음: {e.message}")
-
-            import nose_embedder_pb2
-            return nose_embedder_pb2.NoseVectorResponse(
-                success=False,
-                error_message=f"모델이 로드되지 않음: {e.message}"
-            )
-
-        except InferenceError as e:
-            logger.error(f"추론 실패: {e.message}")
-
-            import nose_embedder_pb2
-            return nose_embedder_pb2.NoseVectorResponse(
-                success=False,
-                error_message=f"추론 실패: {e.message}"
-            )
-
         except DomainException as e:
-            logger.error(f"도메인 에러: {e.message}")
+            # 도메인 예외 - 에러 코드와 재시도 정보 포함
+            logger.error(f"도메인 에러: [{e.code}] {e.message}")
 
             import nose_embedder_pb2
             return nose_embedder_pb2.NoseVectorResponse(
                 success=False,
-                error_message=e.message
+                error_message=e.message,
+                error_code=get_proto_error_code(e.code),
+                retryable=e.retryable
             )
 
         except Exception as e:
+            # 예상치 못한 에러 - INTERNAL_SERVER_ERROR로 처리
             logger.exception(f"예상치 못한 에러: {e}")
 
             import nose_embedder_pb2
             return nose_embedder_pb2.NoseVectorResponse(
                 success=False,
-                error_message=f"내부 에러: {str(e)}"
+                error_message=f"내부 에러: {str(e)}",
+                error_code=get_proto_error_code("ML_5004"),  # INTERNAL_SERVER_ERROR
+                retryable=True
             )
 
     async def HealthCheck(self, request, context):
@@ -194,38 +196,26 @@ class NoseEmbedderServicer:
                 error_message=""
             )
 
-        except ModelNotLoadedError as e:
-            logger.error(f"모델이 로드되지 않음: {e.message}")
-
-            import nose_embedder_pb2
-            return nose_embedder_pb2.CompareVectorsResponse(
-                success=False,
-                error_message=f"모델이 로드되지 않음: {e.message}"
-            )
-
-        except InferenceError as e:
-            logger.error(f"추론 실패: {e.message}")
-
-            import nose_embedder_pb2
-            return nose_embedder_pb2.CompareVectorsResponse(
-                success=False,
-                error_message=f"추론 실패: {e.message}"
-            )
-
         except DomainException as e:
-            logger.error(f"도메인 에러: {e.message}")
+            # 도메인 예외 - 에러 코드와 재시도 정보 포함
+            logger.error(f"도메인 에러: [{e.code}] {e.message}")
 
             import nose_embedder_pb2
             return nose_embedder_pb2.CompareVectorsResponse(
                 success=False,
-                error_message=e.message
+                error_message=e.message,
+                error_code=get_proto_error_code(e.code),
+                retryable=e.retryable
             )
 
         except Exception as e:
+            # 예상치 못한 에러 - INTERNAL_SERVER_ERROR로 처리
             logger.exception(f"예상치 못한 에러: {e}")
 
             import nose_embedder_pb2
             return nose_embedder_pb2.CompareVectorsResponse(
                 success=False,
-                error_message=f"내부 에러: {str(e)}"
+                error_message=f"내부 에러: {str(e)}",
+                error_code=get_proto_error_code("ML_5004"),  # INTERNAL_SERVER_ERROR
+                retryable=True
             )

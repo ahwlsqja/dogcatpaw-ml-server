@@ -5,7 +5,12 @@ from typing import Protocol, Optional, List
 from ...domain.entities.nose_image import NoseImage
 from ...domain.repositories.model_repository import ModelRepository
 from ...domain.services.similarity_calculator import SimilarityCalculator
-from ...domain.exceptions import InvalidImageError
+from ...domain.exceptions import (
+    InvalidImageError,
+    VectorNotFoundError,
+    VectorDimensionMismatchError,
+    StorageConnectionError,
+)
 from ..dto.embedding_dto import SimilarityDTO
 
 logger = logging.getLogger(__name__)
@@ -82,12 +87,17 @@ class CompareWithStoredImageUseCase:
         )
 
         # 1. NCP에서 새 이미지 다운로드
-        image_data = self._image_storage.get_image_by_key(image_key)
+        try:
+            image_data = self._image_storage.get_image_by_key(image_key)
+        except Exception as e:
+            error_msg = f"스토리지에서 이미지를 가져오는 중 오류 발생: {str(e)}"
+            logger.error(error_msg)
+            raise StorageConnectionError(error_msg)
 
         if image_data is None:
             error_msg = f"이미지를 찾을 수 없습니다: {image_key}"
             logger.error(error_msg)
-            raise Exception(error_msg)
+            raise InvalidImageError(error_msg)
 
         logger.info(
             f"이미지 다운로드 완료: {image_key} ({len(image_data)} bytes)"
@@ -110,12 +120,17 @@ class CompareWithStoredImageUseCase:
         )
 
         # 3. PetDID로 저장된 벡터 로드
-        stored_vector = self._vector_storage.get_vector_by_pet_did(pet_did)
+        try:
+            stored_vector = self._vector_storage.get_vector_by_pet_did(pet_did)
+        except Exception as e:
+            error_msg = f"스토리지에서 벡터를 가져오는 중 오류 발생: {str(e)}"
+            logger.error(error_msg)
+            raise StorageConnectionError(error_msg)
 
         if stored_vector is None:
             error_msg = f"PetDID '{pet_did}'에 해당하는 벡터를 찾을 수 없습니다"
             logger.error(error_msg)
-            raise Exception(error_msg)
+            raise VectorNotFoundError(error_msg)
 
         logger.info(
             f"저장된 벡터 로드 완료: pet_did={pet_did}, "
@@ -130,7 +145,7 @@ class CompareWithStoredImageUseCase:
                 f"저장된 벡터={len(stored_vector)}"
             )
             logger.error(error_msg)
-            raise Exception(error_msg)
+            raise VectorDimensionMismatchError(error_msg)
 
         # 4. 유사도 계산
         similarity, cosine_sim, euclidean_dist = (

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # 이미지 전처리 설정
     center_crop_ratio: float = 0.6  # 중앙 crop 비율 (0.6 = 60%)
-    enable_center_crop: bool = True  # 중앙 crop 활성화
+    enable_center_crop: bool = False  # 중앙 crop 비활성화 - 원본 이미지 전체 사용
 
     # 로깅
     log_level: str = "INFO"
