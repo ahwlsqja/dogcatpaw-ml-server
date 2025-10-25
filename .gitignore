@@ -27,6 +27,9 @@ wheels/
 .venv
 .env
 
+# Kubernetes secrets (실제 자격증명이 포함된 로컬 파일)
+k8s/secret.local.yaml
+k8s/*secret.local*.yaml
 # IDE
 .vscode/
 .idea/
