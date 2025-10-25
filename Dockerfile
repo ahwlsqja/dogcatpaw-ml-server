@@ -13,8 +13,7 @@ RUN apt-get update && \
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --progress-bar off -r requirements.txt
 
 
 # Runtime stage
@@ -42,7 +41,8 @@ RUN python -m grpc_tools.protoc \
     ./src/presentation/proto/nose_embedder.proto && \
     echo "Protobuf files generated successfully"
 
-# Copy ONNX model file (included in Docker image)
+# Copy ONNX model file (will be added to image if exists in build context)
+# If not present, model will be downloaded from NCP at runtime
 COPY embedder_model.onnx ./embedder_model.onnx
 
 # Create model cache directory
