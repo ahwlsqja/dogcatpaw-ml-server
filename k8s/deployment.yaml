@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nose-embedder-server
+  namespace: petdid-network
+  labels:
+    app: nose-embedder
+    component: ml-server
+spec:
+  replicas: 1  # 단일 레플리카
+  selector:
+    matchLabels:
+      app: nose-embedder
+  template:
+    metadata:
+      labels:
+        app: nose-embedder
+        component: ml-server
+    spec:
+      containers:
+      - name: nose-embedder
+        image: your-registry/nose-embedder:latest  # 실제 이미지 레지스트리로 교체
+        imagePullPolicy: Always
+
+        ports:
+        - name: grpc
+          containerPort: 50052
+          protocol: TCP
+
+        # 환경변수 - ConfigMap에서 로드
+        envFrom:
+        - configMapRef:
+            name: nose-embedder-config
+
+        # 민감한 정보 - Secret에서 로드
+        env:
+        - name: NCP_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nose-embedder-secret
+              key: NCP_ACCESS_KEY
+        - name: NCP_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nose-embedder-secret
+              key: NCP_SECRET_KEY
+
+        # 리소스 제한 (최소 스펙)
+        resources:
+          requests:
+            cpu: "100m"      # 0.1 CPU
+            memory: "256Mi"  # 256MB RAM
+          limits:
+            cpu: "500m"      # 0.5 CPU
+            memory: "512Mi"  # 512MB RAM
+
+        # 헬스체크 - TCP 소켓 체크 (간단한 방식)
+        livenessProbe:
+          tcpSocket:
+            port: 50052
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          tcpSocket:
+            port: 50052
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        # 볼륨 마운트 (임시 캐시용)
+        volumeMounts:
+        - name: model-cache
+          mountPath: /tmp/models
+
+      # 볼륨 정의
+      volumes:
+      - name: model-cache
+        emptyDir:
+          sizeLimit: 100Mi  # 임시 캐시 크기 제한
+
+      # 워커 노드 분산 배치 (선호도 설정 - 선택사항)
+      # 참고: 레플리카가 1개면 의미 없지만, 추후 확장 시를 위해 주석으로 남김
+      # affinity:
+      #   podAntiAffinity:
+      #     preferredDuringSchedulingIgnoredDuringExecution:
+      #     - weight: 100
+      #       podAffinityTerm:
+      #         labelSelector:
+      #           matchLabels:
+      #             app: nose-embedder
+      #         topologyKey: kubernetes.io/hostname
